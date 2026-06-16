@@ -1,0 +1,73 @@
+services:
+
+  rustfs-perms:
+    image: alpine:latest
+    container_name: rustfs-perms
+    user: root
+    volumes:
+      - drive0_data:/drives/0
+      - drive1_data:/drives/1
+      - drive2_data:/drives/2
+      - drive3_data:/drives/3
+    command: >
+      sh -c "
+      chown -R 10001:10001 /drives/0 &&
+      chown -R 10001:10001 /drives/1 &&
+      chown -R 10001:10001 /drives/2 &&
+      chown -R 10001:10001 /drives/3 &&
+      echo 'Permissions set for all 4 drives.'
+      "
+
+  rustfs-server:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-server
+    command: /data/drive0 /data/drive1 /data/drive2 /data/drive3
+    depends_on:
+      rustfs-perms:
+        condition: service_completed_successfully
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ADDRESS: :9000
+      RUSTFS_CONSOLE_ADDRESS: :9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: adminpassword
+      RUSTFS_UNSAFE_BYPASS_DISK_CHECK: "true"
+    volumes:
+      - drive0_data:/data/drive0
+      - drive1_data:/data/drive1
+      - drive2_data:/data/drive2
+      - drive3_data:/data/drive3
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -sf http://127.0.0.1:9000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rustfs-init:
+    image: minio/mc:latest
+    container_name: rustfs-init
+    depends_on:
+      rustfs-server:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set rustfs http://rustfs-server:9000 admin adminpassword;
+      /usr/bin/mc mb rustfs/bronze || true;
+      /usr/bin/mc mb rustfs/silver || true;
+      /usr/bin/mc mb rustfs/gold || true;
+      echo 'Buckets bronze/silver/gold ready.';
+      exit 0;
+      "
+
+volumes:
+  drive0_data:
+    driver: local
+  drive1_data:
+    driver: local
+  drive2_data:
+    driver: local
+  drive3_data:
+    driver: local
