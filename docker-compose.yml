@@ -19,7 +19,7 @@ services:
       "
 
   rustfs-server:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.0-beta.8
     container_name: rustfs-server
     command: /data/drive0 /data/drive1 /data/drive2 /data/drive3
     depends_on:
