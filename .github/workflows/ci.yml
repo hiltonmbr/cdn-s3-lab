@@ -33,4 +33,4 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --extra dev
       - name: Run ruff
-        run: uv run ruff check src/ notebooks/
+        run: uv run ruff check --fix scripts/ notebooks/

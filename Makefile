@@ -82,7 +82,7 @@ sys.exit(1 if failures else 0)"
 
 lint:
 	@echo "🎨 Running ruff linter..."
-	uv run ruff check src/ notebooks/
+	uv run ruff check scripts/ notebooks/
 
 test:
 	@echo "🧪 Running notebook tests (RustFS must be running)..."
