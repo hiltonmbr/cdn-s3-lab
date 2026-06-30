@@ -62,14 +62,25 @@ sequenceDiagram
 
 ## Testing Fault Tolerance in the Lab
 
-In lab 4, you will:
+In lab 4, you will simulate drive failures at the **shard level** by renaming
+the drive directory inside the running container. This forces RustFS to return
+`ENOENT` on the next path lookup, which is a more reliable failure signal than
+`chmod 000` (a cached open file descriptor would bypass permission changes).
+
+```bash
+# Simulate drive failure: rename dir so shard lookups fail with ENOENT
+docker exec rustfs-server mv /data/drive1/lab4-ft /data/drive1/lab4-ft_FAILED
+
+# Restore: rename back
+docker exec rustfs-server mv /data/drive1/lab4-ft_FAILED /data/drive1/lab4-ft
+```
+
+Steps:
 1. Upload files to the cluster (normal operation)
-2. Stop one node: `docker compose stop rustfs-node1`
-3. Try reading the files — they're still accessible!
-4. Stop a second node
-5. Check data survival — EC:2 tolerates this
-6. Stop a third node — some data may become unavailable
-7. Restart the nodes — automatic healing kicks in
+2. Fail one drive directory — reads still succeed (5/6 shards, EC reconstructs)
+3. Fail a second drive — reads still succeed (4/6 shards, exactly at RS(4,2) limit)
+4. Fail a third drive — reads fail (3/6 shards < k=4, data unrecoverable)
+5. Restore all drives — healing kicks in, all objects become readable again
 
 ## Best Practices for Production
 

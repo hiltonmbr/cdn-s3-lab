@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help up down clean clean-data status shell-server setup-env jupyter-lab strip
+.PHONY: help up down clean clean-data status shell-server setup-env jupyter-lab strip lint check test
 
 help:
 	@echo "🪣✨ Welcome to the S3 Lab! Your Object Storage playground! ✨🪣"
@@ -14,6 +14,9 @@ help:
 	@echo "  🐍 make setup-env     - 🪄  Create Python venv and install dependencies with uv"
 	@echo "  📓 make jupyter-lab   - 🚀 Launch Jupyter Lab"
 	@echo "  🧹 make strip         - ✂️  Strip all notebook outputs"
+	@echo "  🔍 make check         - 🧪 Verify notebooks are output-stripped (CI-safe)"
+	@echo "  🎨 make lint          - 🐍 Run ruff linter on src/ and notebooks/"
+	@echo "  🧪 make test          - 🔬 Run pytest notebook tests (requires RustFS running)"
 	@echo ""
 
 up:
@@ -67,3 +70,20 @@ strip:
 	@for f in notebooks/*.ipynb; do \
 		uv run python3 -c "import json,sys; f=sys.argv[1]; nb=json.load(open(f)); [c.update(outputs=[], execution_count=None) for c in nb['cells'] if c.get('cell_type')=='code']; json.dump(nb, open(f,'w'), indent=1, ensure_ascii=False); print('  ✓ '+f)" "$$f"; \
 	done
+
+check:
+	@echo "🔍 Checking that all notebooks are output-stripped..."
+	@uv run python3 -c "\
+import json, glob, sys; \
+failures = []; \
+[failures.extend([(f, c.get('id','?')) for c in json.load(open(f))['cells'] if c.get('cell_type')=='code' and (c.get('outputs') or c.get('execution_count') is not None)]) for f in glob.glob('notebooks/*.ipynb')]; \
+[print(f'  ❌ {f} cell {c} has outputs — run make strip') for f, c in failures] or print('  ✅ All notebooks are clean'); \
+sys.exit(1 if failures else 0)"
+
+lint:
+	@echo "🎨 Running ruff linter..."
+	uv run ruff check src/ notebooks/
+
+test:
+	@echo "🧪 Running notebook tests (RustFS must be running)..."
+	uv run pytest tests/ --nbmake --nbmake-timeout=120 -v
